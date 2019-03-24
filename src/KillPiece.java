@@ -1,11 +1,9 @@
 public class KillPiece extends MoveComponent{
-    private int row, col;
+    private BoardPos destination;
 
-    KillPiece(int row, int col){
-        this.row = row;
-        this.col = col;
+    KillPiece(BoardPos destination){
+        this.destination = destination;
     }
 
-    public int getRow(){return row; }
-    public int getCol(){return col; }
+    public BoardPos getDestination(){return destination; }
 }
