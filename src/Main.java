@@ -29,7 +29,7 @@ public class Main extends Application {
     static ObjectInputStream in;
     static ObjectOutputStream out;
 
-    static Thread waitForConnection; //thread used when hosting and waiting for a connection from client, need to be able to reference globally so I can reference and kill it in the lambda function I used for the "Back" button event handler
+    static long time1, time2;
 
 
     public static void main(String[] args) { launch(); }
@@ -37,13 +37,6 @@ public class Main extends Application {
     @Override
     public void start(Stage stage) throws Exception {
         mainStage = stage; //mainStage is a class attribute, used so I can reference stage globally without passing references as arguments
-
-        //initialize server socket
-        try {
-            ss = new ServerSocket(8000);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
         //initialize IPaddress
         try {
@@ -74,22 +67,34 @@ public class Main extends Application {
 
     private static void hostGame() {
         //NETWORK: wait for player to connect and assign socket and I/O streams, do in separate thread
-        waitForConnection = new Thread(new ConnectToClient());
-        waitForConnection.start();
+
+        //initialize server socket and begin waiting for client connection
+        try {
+            ss = new ServerSocket(6000);
+            Thread waitForConnection = new Thread(new ConnectToClient());
+            waitForConnection.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         //UI: display IPaddress and screen waiting for opponent to connect
         VBox preGamePane = new VBox(); preGamePane.setSpacing(20); preGamePane.setAlignment(Pos.CENTER); //set up pane
         Scene preGameScene = new Scene(preGamePane, stageWidth, stageHeight); //set up scene
-        Platform.runLater(() -> {mainStage.setScene(preGameScene);} ); //set current scene, use runlater since this is all happening in a seperate thread created by the event handler for the "Host Game" button in the main method
+        //Platform.runLater(() -> {mainStage.setScene(preGameScene);} ); //set current scene, use runlater since this is all happening in a seperate thread created by the event handler for the "Host Game" button in the main method
+        mainStage.setScene(preGameScene);
 
         Text IPaddressDisplay = new Text(IPaddress);
         Button backButton = new Button("Back");
         backButton.setOnAction(e -> {
-            waitForConnection.stop(); //end
             mainStage.setScene(mainMenu);
+            try {
+                ss.close(); //closing the ss will cause any thread stuck on the ss.accept() method to throw an exception and continue past that method, this will effectively end the waitForConnectionThread
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
         });
+        mainStage.setScene(preGameScene);
         preGamePane.getChildren().addAll(IPaddressDisplay, backButton);
-
 
     }
 
@@ -101,7 +106,7 @@ public class Main extends Application {
         //NETWORK: assign socket and I/O streams - DONE
         try {
             //create socket and connect to server
-            socket = new Socket(hostIPaddress, 8000);
+            socket = new Socket(hostIPaddress, 6000);
 
             //initialize IO streams
             in = new ObjectInputStream(socket.getInputStream());
@@ -213,20 +218,20 @@ public class Main extends Application {
     }
 
     static class ConnectToClient implements Runnable{
+
         @Override
         public void run() {
             try {
-                while(true){System.out.println("yeet"); Thread.sleep(1000);}
                 //create socket to communicate with client
-                //socket = ss.accept();
+                socket = ss.accept();
 
                 //initialize IO streams
-                //in = new ObjectInputStream(socket.getInputStream());
-                //out = new ObjectOutputStream(socket.getOutputStream());
+                in = new ObjectInputStream(socket.getInputStream());
+                out = new ObjectOutputStream(socket.getOutputStream());
 
-            } /*catch (IOException e) {
-                e.printStackTrace();
-            }*/ catch (InterruptedException e) {
+            } catch (SocketException e) {
+                System.out.println("Waiting for client socket connection cancelled");
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
