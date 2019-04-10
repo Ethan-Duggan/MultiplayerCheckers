@@ -4,14 +4,15 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.*;
 
 public class Main extends Application {
@@ -26,11 +27,8 @@ public class Main extends Application {
     static ServerSocket ss;
     static Socket socket;
     static String IPaddress;
-    static ObjectInputStream in;
-    static ObjectOutputStream out;
-
-    static long time1, time2;
-
+    static DataInputStream in;
+    static DataOutputStream out;
 
     public static void main(String[] args) { launch(); }
 
@@ -60,7 +58,6 @@ public class Main extends Application {
         hostButton.setOnAction(e -> { hostGame(); });
         joinButton.setOnAction(e -> { joinGame(); });
         exitButton.setOnAction(e -> { Platform.exit(); });
-
 
         stage.show();
     }
@@ -95,29 +92,52 @@ public class Main extends Application {
         });
         mainStage.setScene(preGameScene);
         preGamePane.getChildren().addAll(IPaddressDisplay, backButton);
-
     }
 
     private static void joinGame() {
-        String hostIPaddress = "";
+        //UI: have user enter an IP address to connect to
+        VBox preGamePane = new VBox(); preGamePane.setSpacing(20); preGamePane.setAlignment(Pos.CENTER); //set up pane
+        Scene preGameScene = new Scene(preGamePane, stageWidth, stageHeight); //set up scene
+        mainStage.setScene(preGameScene);
+        //create IPaddressField TextField
+        TextField IPaddressField = new TextField(); IPaddressField.setPromptText("Enter Host's IP Adress here...");
+        //create joinButton
+        Button joinButton = new Button("Join");
+        joinButton.setOnAction(e -> {
+            try {
+                //create socket and connect to server
+                socket = new Socket(IPaddressField.getText(), 6000);
+                System.out.println("Client: connection successful");
 
-        //UI: have user enter an IP address to connect to, store IP address in the String variable "hostIPaddress"
+                //initialize IO streams
+                in = new DataInputStream(socket.getInputStream());
+                out = new DataOutputStream(socket.getOutputStream());
 
-        //NETWORK: assign socket and I/O streams - DONE
-        try {
-            //create socket and connect to server
-            socket = new Socket(hostIPaddress, 6000);
 
-            //initialize IO streams
-            in = new ObjectInputStream(socket.getInputStream());
-            out = new ObjectOutputStream(socket.getOutputStream());
 
-            //start game
-            runGame(false);
+                //start game
+                //runGame(false);
 
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            } finally{
+                System.out.println("hmm");
+            }
+        });
+            //set IPaddressField to call the joinButton handler class defined directly above here when the user presses enter in the "IPaddressField" TextField
+        IPaddressField.setOnKeyPressed(e -> {
+            if(e.getCode() == KeyCode.ENTER){
+                joinButton.fire();
+            }
+        });
+        //create backButton
+        Button backButton = new Button("Back");
+        backButton.setOnAction(e -> { mainStage.setScene(mainMenu); });
+        //put nodes in panes
+        HBox enterAddressAndJoinPane = new HBox();  //used to hold the text field to enter the IP address as well as the join button so that they appear next to each other, this just looks prettier
+        enterAddressAndJoinPane.getChildren().addAll(IPaddressField,joinButton);
+        preGamePane.getChildren().addAll(enterAddressAndJoinPane, backButton);
+
     }
 
     private static void runGame(boolean hosting) {
@@ -149,12 +169,12 @@ public class Main extends Application {
         boolean gameOver = executeMove(move, piecePos);
 
         //NETWORK: send move and piece position to client
-        try {
+        /*try {
             out.writeObject(move);
             out.writeObject(piecePos);
         } catch (IOException e) {
             e.printStackTrace();
-        }
+        }*/
 
         return gameOver;
     }
@@ -162,7 +182,7 @@ public class Main extends Application {
     private static boolean executeOpponentTurn() {
 
         //NETWORK: receive move from client, set move and piecePos variables - DONE
-        try {
+        /*try {
             //read the opponent's move data from the input stream
             Move move = (Move) in.readObject();
             BoardPos piecePos = (BoardPos) in.readObject();
@@ -175,7 +195,7 @@ public class Main extends Application {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
-        }
+        }*/
         return false;
     }
 
@@ -226,8 +246,13 @@ public class Main extends Application {
                 socket = ss.accept();
 
                 //initialize IO streams
-                in = new ObjectInputStream(socket.getInputStream());
-                out = new ObjectOutputStream(socket.getOutputStream());
+                in = new DataInputStream(socket.getInputStream());
+                out = new DataOutputStream(socket.getOutputStream());
+
+                System.out.println("Host: connection successful");
+
+                //start game
+                //runGame(true);
 
             } catch (SocketException e) {
                 System.out.println("Waiting for client socket connection cancelled");
